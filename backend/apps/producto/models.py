@@ -25,13 +25,13 @@ class Producto(models.Model):
     )
     arreglista = models.CharField(max_length=100)
     slug = models.SlugField(unique=True, blank=True)
-    portada = models.ImageField(upload_to='portadas/', null=True, blank=True)
+    portada = models.ImageField(upload_to='portadas/')
     datecreated = models.DateTimeField(auto_now_add=True)
     tieneFinale = models.BooleanField(default=False)
     tieneAudio = models.BooleanField(default=False)
     tieneDestacado = models.BooleanField(default=False)
     categoria = models.ForeignKey(CategoriaProducto, on_delete=models.CASCADE)
-    urlYoutube = models.TextField(null=True, blank=True)
+    archivo = models.FileField(upload_to='files/')
 
     def save(self, *args, **kwargs):
         if not self.slug:

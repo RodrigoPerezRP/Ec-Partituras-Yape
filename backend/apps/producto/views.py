@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from dotenv import load_dotenv
 import os, requests, uuid, json
 from rest_framework.exceptions import ValidationError
+from django.core.mail import EmailMessage
 
 from .models import (
     CategoriaProducto,
@@ -111,7 +112,28 @@ class CreatePay(APIView):
                 resPayment = responsePayment.json()
 
                 if resPayment['status'] == "approved":
-                    return Response(True, status=status.HTTP_200_OK)
+                
+                    try:
+                        to_email = str(request.data['email'])
+                        subject = "Partitura"
+                        message = Producto.objects.get(id=request.data['partituraId']).nombre
+
+                        email = EmailMessage(
+                            subject=subject,
+                            body=message,
+                            from_email=None,  
+                            to=[to_email]
+                        )
+
+                        email.attach_file(Producto.objects.get(id=request.data['partituraId']).archivo.path)
+
+                        email.send()
+
+                        return Response(True, status=status.HTTP_200_OK)
+
+                    except Exception as e:
+                        print(e)
+                        return Response("Algo salió mal", status=status.HTTP_400_BAD_REQUEST)
                 
                 return Response({"message": 'Algo salio mal durante el pago'}, status=status.HTTP_400_BAD_REQUEST)
 

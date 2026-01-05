@@ -41,7 +41,7 @@ class ProductoAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Información básica', {
             'fields': (
-                'nombre',
+                'nombre',   
                 'slug',
                 'descripcion',
                 'precio',
@@ -56,7 +56,7 @@ class ProductoAdmin(admin.ModelAdmin):
                 'portada',
                 'tieneAudio',
                 'tieneFinale',
-                'urlYoutube',
+                'archivo',
             )
         }),
         ('Estado', {
