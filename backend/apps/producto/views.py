@@ -5,9 +5,11 @@ from rest_framework.generics import ListAPIView
 from rest_framework import status 
 from rest_framework.response import Response
 from dotenv import load_dotenv
-import os, requests, uuid, json
+import os, requests, uuid, json, threading
 from rest_framework.exceptions import ValidationError
 from django.core.mail import EmailMessage
+from twilio.rest import Client
+from django.conf import settings
 
 from .models import (
     CategoriaProducto,
@@ -17,6 +19,8 @@ from .serializers import (
     CategoriaProductoSerializer,
     ProductoSerializer
 )
+
+from apps.pagos.models import Pago
 
 class ListPartituras(ListAPIView):
     
@@ -44,6 +48,22 @@ class DetailPartitura(APIView):
 
 
 class CreatePay(APIView):
+
+    def enviar_partitura_email(self, to_email, partitura_id):
+        try:
+            producto = Producto.objects.get(id=partitura_id)
+
+            email = EmailMessage(
+                subject="Partitura",
+                body=producto.nombre,
+                to=[to_email]
+            )
+
+            email.attach_file(producto.archivo.path)
+            email.send()
+
+        except Exception as e:
+            print("Error enviando email:", e)
 
     def validate_required_fields(self, request, required_fields):
         errors = {}
@@ -113,28 +133,26 @@ class CreatePay(APIView):
 
                 if resPayment['status'] == "approved":
                 
-                    try:
-                        to_email = str(request.data['email'])
-                        subject = "Partitura"
-                        message = Producto.objects.get(id=request.data['partituraId']).nombre
+                    to_email = str(request.data['email'])
+                    partitura_id = request.data['partituraId']
 
-                        email = EmailMessage(
-                            subject=subject,
-                            body=message,
-                            from_email=None,  
-                            to=[to_email]
-                        )
+                    threading.Thread(
+                        target=self.enviar_partitura_email,
+                        args=(to_email, partitura_id)
+                    ).start()
 
-                        email.attach_file(Producto.objects.get(id=request.data['partituraId']).archivo.path)
+                    dataPay = {
+                        'monto': int(Producto.objects.get(id=request.data['partituraId']).precio),
+                        'whatsappNumber': request.data["whatsappNumber"],
+                        'email': request.data['email'],
+                        'pagoId': resPayment['id'],
+                    }
 
-                        email.send()
+                    pago = Pago(**dataPay)
+                    pago.save()  
 
-                        return Response(True, status=status.HTTP_200_OK)
+                    return Response(True, status=status.HTTP_200_OK)
 
-                    except Exception as e:
-                        print(e)
-                        return Response("Algo salió mal", status=status.HTTP_400_BAD_REQUEST)
-                
                 return Response({"message": 'Algo salio mal durante el pago'}, status=status.HTTP_400_BAD_REQUEST)
 
             return Response({"message": "Algo salio mal en el Pago"}, status=status.HTTP_400_BAD_REQUEST)
